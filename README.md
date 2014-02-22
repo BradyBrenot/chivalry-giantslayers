@@ -6,11 +6,12 @@ Everyone starts at 60% normal size.
 Every kills grows you, and your health, by 15%. 
 
 
-Feel free to reuse this example or any parts of it. Just rename any derivative mods to something else to avoid confusion.
+Feel free to reuse this mod or any parts of it. Just rename any derivative mods to something else to avoid confusion.
 
 =================
 
 In the Steam Workshop: http://steamcommunity.com/sharedfiles/filedetails/?id=226726898
+
 The "Creating the Giant Slayers mod" tutorial: https://tornbannerjira.atlassian.net/wiki/pages/viewpage.action?pageId=20054366
 
 =================
