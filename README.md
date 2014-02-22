@@ -18,7 +18,7 @@ The "Creating the Giant Slayers mod" tutorial: https://tornbannerjira.atlassian.
 
 Currently this only supports FFA, and there are some bugs (players are so small to start with that they 'swim' in Cistern; on maps with landscape you'll occasionally clip through it when you kill someone unless you jump first). There are plans to improve it now that we've seen how entertaining this thing is, though. 
 
-=================i
+=================
 
 Using the .cmwsdk file from the Workshop, or after compiling and cooking this mod locally (setting the "modname" to "giantslayers"):
 
