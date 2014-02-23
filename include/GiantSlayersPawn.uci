@@ -1,0 +1,238 @@
+var repnotify float GiantScale;
+var CylinderComponent Bubble;
+var float PerKillHealing;
+
+//PitchMultiplier = 1.0 for GiantScale = 1.0
+//PitchMultiplier = MinPitchMultiplier for GiantScale = PitchMultiplierStartGiantScale
+//PitchMultiplier = MaxPitchMultiplier for GiantScale = PitchMultiplierEndGiantScale
+//scale linearly, two different slopes (before 1.0, and after 1.0)
+
+var float MaxPitchMultiplier;
+var float MinPitchMultiplier;
+var float PitchMultiplierStartGiantScale;
+var float PitchMultiplierEndGiantScale;
+var float PitchMultiplier;
+
+replication
+{
+	if ( bNetDirty )
+		GiantScale;
+}
+
+/** Do something when a repnotify variable is replicated. */
+simulated event ReplicatedEvent(name VarName)
+{
+	super.ReplicatedEvent(VarName);
+	if (VarName == 'GiantScale')
+	{
+		SetGiantScale(GiantScale);
+	}
+}
+
+simulated function SetCharacterAppearanceFromInfo(class<AOCCharacterInfo> Info)
+{
+	Super.SetCharacterAppearanceFromInfo(Info);
+	SetGiantScale(GiantScale);
+}
+
+simulated function SetGiantScale(float NewScale)
+{
+	local float SafetyPushHeight;
+	
+	if(Role == ROLE_Authority)
+	{
+		//This code is only executed on the server
+		Health *= (NewScale / GiantScale);
+		HealthMax *= (NewScale / GiantScale);
+		Health = FMin(Health + HealthMax * PerKillHealing, HealthMax);
+	}	
+
+	GiantScale = NewScale;
+	
+	//Taking a shortcut here by hardcoding the default scales/widths/heights of the components. Not good practice, but good enough for the tutorial.
+	Mesh.SetScale(1.5 * GiantScale);
+	OwnerMesh.SetScale(1.5 * GiantScale);
+	
+	//`{GAMEMODE}PlayerController(Controller).ClientDisplayConsoleMessage("Old height: "@GetCollisionHeight());
+	
+	//Push the pawn up a bit before rescaling to avoid clipping into the ground
+	if(Role == ROLE_AUTHORITY || IsLocallyControlled())
+	{
+		SafetyPushHeight = FMax(0, GiantScale * 65 - GetCollisionHeight());
+		SetLocation(Location + Vect(0,0,1)*SafetyPushHeight);
+	}
+	
+	//Scale collision and enemy-collision ("bubble") cylinders
+	CylinderComponent.SetCylinderSize(GiantScale * 36, GiantScale * 65);
+	
+	//Going to gradually scale down the bubble so it's totally uninvolved with large giants
+	Bubble.SetCylinderSize(GiantScale * Max(36, 39 - 2 * Max(0, GiantScale - 1)), GiantScale * 65);
+	
+	//`{GAMEMODE}PlayerController(Controller).ClientDisplayConsoleMessage("New height: "@GetCollisionHeight());
+	
+	if(Role == ROLE_AUTHORITY || IsLocallyControlled())
+	{
+		MoveSmooth(Vect(0,0,1) * SafetyPushHeight);
+	}
+	
+	//Scale the voice pitch too!
+	if(GiantScale < 1.0f)
+	{
+		PitchMultiplier = Lerp((GiantScale - PitchMultiplierStartGiantScale)/(1.0 - PitchMultiplierStartGiantScale), 1.0, MaxPitchMultiplier);
+	}
+	else
+	{
+		PitchMultiplier = Lerp((PitchMultiplierEndGiantScale - GiantScale)/(PitchMultiplierEndGiantScale - 1.0), 1.0, MinPitchMultiplier);
+	}
+	
+	PitchMultiplier = FClamp(PitchMultiplier, MinPitchMultiplier, MaxPitchMultiplier);
+
+	//VOSoundComp.PitchMultiplier = PitchMultiplier;
+	FallingSoundComp.PitchMultiplier = PitchMultiplier;
+	
+	ForceUpdateComponents();
+	
+	//Inform the PC
+	//LogAlwaysInternal("IsLocallyControlled"@IsLocallyControlled());
+	//LogAlwaysInternal("`{GAMEMODE}PlayerController(Controller)"@`{GAMEMODE}PlayerController(Controller));
+	if(IsLocallyControlled())
+	{
+		`{GAMEMODE}PlayerController(Controller).NotifyChangedScale();
+		//`{GAMEMODE}PlayerController(Controller).ClientDisplayConsoleMessage("PM: "@PitchMultiplier);
+		//`{GAMEMODE}PlayerController(Controller).ClientDisplayConsoleMessage("SafetyPushHeight: "@SafetyPushHeight);
+	}
+	
+	//MaxStepHeight = default.MaxStepHeight * GiantScale;
+}
+
+simulated function TestScaleSoundA(float Scale)
+{
+	PitchMultiplier = Scale;
+}
+
+simulated function TestScaleSoundB(float Scale)
+{
+	//
+}
+
+/* ************************************************************************
+ * Voice pitch scaling... not pretty
+ **************************************************************************/
+simulated function PlayZMenuVO(int index)
+{
+	local SoundCue voSound;
+
+	if (WorldInfo.NetMode == NM_DedicatedServer)
+		return;
+		
+	if (!VOSoundComp.IsPlaying() && Physics != PHYS_Falling && !bIsBurning)
+	{	
+		if (AOCCTFPlayerController(Controller) == none || index != 4)
+		{
+			class<AOCPawnSoundGroup>(SoundGroupClass).static.getAOCZMenuVO(self, index, voSound);
+		}  
+		else if (AOCCTFPlayerController(Controller) != none && index == 4)
+		{
+			class<AOCPawnSoundGroup>(SoundGroupClass).static.GetCTFDynVO(self, voSound);
+		}
+
+
+		voSound.PitchMultiplier = PitchMultiplier;
+		VOSoundComp.SoundCue = voSound;
+		VOSoundComp.Play();
+
+		if (Role < ROLE_Authority || WorldInfo.NetMode == NM_STANDALONE)
+		{
+			s_PlayVO(voSound);
+		}
+	}
+	else
+	{
+		PlaySound(GenericCantDoSound, true);
+		AOCGame(WorldInfo.Game).LocalizedPrivateMessage(PlayerController(Controller), 12);
+	}
+}
+
+simulated function PlayXMenuVO(int index)
+{
+	local SoundCue voSound;
+
+	if (WorldInfo.NetMode == NM_DedicatedServer)
+		return;
+		
+	if (!VOSoundComp.IsPlaying() && Physics != PHYS_Falling && !bIsBurning)
+	{	
+		class<AOCPawnSoundGroup>(SoundGroupClass).static.getAOCXMenuVO(self, index, voSound);
+		
+		voSound.PitchMultiplier = PitchMultiplier;
+		VOSoundComp.SoundCue = voSound;
+		VOSoundComp.Play();
+
+		if (Role < ROLE_Authority || WorldInfo.NetMode == NM_STANDALONE)
+		{
+			s_PlayVO(voSound);
+		}
+	}
+	else
+	{
+		PlaySound(GenericCantDoSound, true);
+		AOCGame(WorldInfo.Game).LocalizedPrivateMessage(PlayerController(Controller), 12);
+	}
+}
+
+reliable server function s_PlayVO(SoundCue voSound)
+{
+	voSound.PitchMultiplier = PitchMultiplier;
+	
+	if(voSound == PawnCharacter.default.MobileBattleCry)
+	{
+		OnActionSucceeded(EACT_Battlecry);
+	}
+	
+	VOSoundComp.SoundCue = voSound;
+	replicatedSoundToStop.soundToStop = VOSoundComp.SoundCue.Name;
+	replicatedSoundToStop.soundOwnerNetTag = PlayerReplicationInfo.PlayerID;
+	PlaySound(voSound, false, false, true);
+}
+
+simulated function PlayBattleCrySound()
+{
+	local SoundCue voSound;
+
+	if (!bIsBurning && !VOSoundComp.IsPlaying())
+	{
+		if(PawnInfo.myFamily.default.FamilyFaction == EFAC_AGATHA)
+		{
+			voSound = class<AOCPawnSoundGroup>(SoundGroupClass).default.BattleCrySoundAgatha;
+		}
+		else
+		{
+			voSound = class<AOCPawnSoundGroup>(SoundGroupClass).default.BattleCrySoundMason;
+		}
+
+		voSound.PitchMultiplier = PitchMultiplier;
+		VOSoundComp.SoundCue = voSound;
+		VOSoundComp.Play();
+		
+		if (Role < ROLE_Authority || WorldInfo.NetMode == NM_STANDALONE)
+			s_PlayVO(voSound);
+	}
+}
+
+defaultproperties
+{
+	//start out mini!
+	GiantScale = 0.6
+	Bubble = OuterCylinder
+	
+	//heal by 7% of max health per kill
+	PerKillHealing = 0.07
+	
+	MaxPitchMultiplier = 1.5;
+	MinPitchMultiplier = 0.4;
+	PitchMultiplierStartGiantScale = 0.6;
+	PitchMultiplierEndGiantScale = 10;
+	PitchMultiplier = 1.0;
+	
+	WaterMovementState=PlayerWalking
+}

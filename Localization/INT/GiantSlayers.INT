@@ -1,0 +1,21 @@
+[ChatMessages]
+Welcome=Welcome to Giant Slayers!
+ChatWelcomeFFA=Welcome to Giant Slayers FFA! The goal: grow as big as you possibly can. You start out smaller than normal, but every kills makes you grow a bit. There's no limit to how large you can get!
+ChatWelcomeOther=Welcome to Giant Slayers! You start out smaller than normal, but every kills makes you grow a bit. There's no limit to how large you can get!
+
+;@todo: improved descent into madness
+SizeMessage0=You're tiny ({SCALE})
+SizeMessage1=You're just a little small ({SCALE})
+SizeMessage2=You're about average ({SCALE})
+SizeMessage3=You're a bit bigger than normal ({SCALE})
+SizeMessage4=You're intimidatingly big ({SCALE})
+SizeMessage5=You're twice Malric's size, it's starting to get to your head ({SCALE})
+SizeMessage6=You're more than thrice any normal soldier's height ({SCALE})
+SizeMessage7=You're a certified giant ({SCALE})
+SizeMessage8=You're enormous ({SCALE})
+SizeMessage9=You're a titan ({SCALE})
+SizeMessage10=The sky is getting close ({SCALE})
+SizeMessage11=You are the sky ({SCALE}) 
+SizeMessage12=No one can touch me ({SCALE})
+SizeMessage13=Puny humans will never understand my existence ({SCALE})
+SizeMessage14=Fee-fi-fo-fum, I smell the blood of soon dead men ({SCALE})
