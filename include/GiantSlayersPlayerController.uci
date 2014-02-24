@@ -3,6 +3,7 @@ var array<float> SizeMessageThresholds;
 //Welcome users to the game
 reliable client function ShowDefaultGameHeader()
 {
+	local string ScalingRules;
 	if (AOCGRI(Worldinfo.GRI) == none)
 	{
 		SetTimer(0.1f, false, 'ShowDefaultGameHeader');
@@ -10,16 +11,20 @@ reliable client function ShowDefaultGameHeader()
 	}
 
 	super.ShowDefaultGameHeader();
+	
 	//Localize() will find the "Welcome" key in the "ChatMessages" section of "GiantSlayers.XXX" where XXX is replaced with the user's language's name (English is "INT")
+	//ReceiveChatMessage("",Localize("ChatMessages", "ChatWelcomeOther", "GiantSlayers"),EFAC_ALL,false,false,,false);
+	//Localization is broken at the moment...
+	ReceiveChatMessage("","Welcome to Giant Slayers! You start out smaller than normal, but every kill makes you grow a bit. There's no limit to how large you can get!",EFAC_ALL,false,false,,false);
+	
+	ScalingRules = "Scaling rules: You'll gain"@Round(class'`{GAMEMODE}'.default.FlatScalePerKill*100)$"% of normal size per kill + "$Round(class'`{GAMEMODE}'.default.ScaleMultiplierPerKill*100 - 100)$"% of your current size + "$Round(class'`{GAMEMODE}'.default.ScaleStealPerKill*100)$"% of the earned size of the player you killed";
+	
+	ReceiveChatMessage("",Scalingrules,EFAC_ALL,false,false,,false);
+		
 	`if(`isdefined(GS_FFA))
-		//ReceiveChatMessage("",Localize("ChatMessages", "ChatWelcomeFFA", "GiantSlayers"),EFAC_ALL,false,false,,false);
-		//Localization is broken at the moment...
-		ReceiveChatMessage("","Welcome to Giant Slayers FFA! The goal: grow as big as you possibly can. You start out smaller than normal, but every kills makes you grow a bit. There's no limit to how large you can get!",EFAC_ALL,false,false,,false);
-	`else
-		//ReceiveChatMessage("",Localize("ChatMessages", "ChatWelcomeOther", "GiantSlayers"),EFAC_ALL,false,false,,false);
-		//Localization is broken at the moment...
-		ReceiveChatMessage("","Welcome to Giant Slayers! You start out smaller than normal, but every kills makes you grow a bit. There's no limit to how large you can get!",EFAC_ALL,false,false,,false);
+		ReceiveChatMessage("","Giant Slayers Free-For-All: The player who achieved the largest size by the end of the round wins!",EFAC_ALL,false,true,"#04B404",false);
 	`endif
+	
 	SetTimer(3.0f, false, 'ShowGiantSlayersHeader');
 }
 
@@ -30,7 +35,7 @@ simulated function ShowGiantSlayersHeader()
 	ReceiveLocalizedHeaderText("Welcome to Giant Slayers!",5.0f);
 }
 
-simulated function NotifyChangedScale()
+reliable client function ClientNotifyChangedScale(float NewScale, float EnemyScale, float ScaleSappedFromEnemy, float FlatScaleIncrease, float HealthSappedFromEnemy)
 {
 	local `{GAMEMODE}Pawn MyPawn;
 	local string Message;
@@ -38,15 +43,21 @@ simulated function NotifyChangedScale()
 	
 	MyPawn = `{GAMEMODE}Pawn(Pawn);
 	
-	if(MyPawn.GiantScale <= MyPawn.default.GiantScale)
+	if(NewScale <= MyPawn.default.GiantScale)
 	{
 		return;
+	}
+	
+	if(EnemyScale > 0)
+	{
+		Message = "You killed an enemy who was at"@Round(EnemyScale*100)$"% size. You get a bonus "$Round(ScaleSappedFromEnemy*100)$"% size increase, for a total"@Round(FlatScaleIncrease*100+ScaleSappedFromEnemy*100)$"% growth. You also heal "$Round(HealthSappedFromEnemy)$"HP"; 
+		ReceiveChatMessage("",Message,EFAC_ALL,false,false,,false);
 	}
 	
 	ThresholdIndex = 0;
 	for(i = 0; i < SizeMessageThresholds.length; ++i)
 	{
-		if(MyPawn.GiantScale >= SizeMessageThresholds[i])
+		if(NewScale >= SizeMessageThresholds[i])
 		{
 			ThresholdIndex = i;
 		}
@@ -111,7 +122,7 @@ simulated function NotifyChangedScale()
 			break;
 	}
 	
-	Message = Repl(Message, "{SCALE}", Round(MyPawn.GiantScale * 100.0)$"%");
+	Message = Repl(Message, "{SCALE}", Round(NewScale * 100.0)$"%");
 	
 	ReceiveChatMessage("",Message,EFAC_ALL,false,false,,false);
 }
@@ -120,6 +131,8 @@ exec function GS_Scale(float NewScale)
 {
 	if(Worldinfo.NetMode == NM_Standalone)
 	{
+		`{GAMEMODE}Pawn(Pawn).Health *= (NewScale / `{GAMEMODE}Pawn(Pawn).GiantScale);
+		`{GAMEMODE}Pawn(Pawn).HealthMax *= (NewScale / `{GAMEMODE}Pawn(Pawn).GiantScale);
 		`{GAMEMODE}Pawn(Pawn).SetGiantScale(NewScale);
 	}
 }

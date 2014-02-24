@@ -1,0 +1,1 @@
+class GiantSlayersFamilyInfo_Agatha_Knight extends AOCFamilyInfo_Agatha_Knight;
