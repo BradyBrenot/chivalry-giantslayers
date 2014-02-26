@@ -1,3 +1,5 @@
+class AOGPlayerController extends AOCPlayerController;
+
 var array<float> SizeMessageThresholds;
 
 //Welcome users to the game
@@ -15,16 +17,8 @@ reliable client function ShowDefaultGameHeader()
 	//Localize() will find the "Welcome" key in the "ChatMessages" section of "GiantSlayers.XXX" where XXX is replaced with the user's language's name (English is "INT")
 	//ReceiveChatMessage("",Localize("ChatMessages", "ChatWelcomeOther", "GiantSlayers"),EFAC_ALL,false,false,,false);
 	//Localization is broken at the moment...
-	ReceiveChatMessage("","Welcome to Giant Slayers! You start out smaller than normal, but every kill makes you grow a bit. There's no limit to how large you can get!",EFAC_ALL,false,false,,false);
-	
-	ScalingRules = "Scaling rules: You'll gain"@Round(class'`{GAMEMODE}'.default.FlatScalePerKill*100)$"% of normal size per kill + "$Round(class'`{GAMEMODE}'.default.ScaleMultiplierPerKill*100 - 100)$"% of your current size + "$Round(class'`{GAMEMODE}'.default.ScaleStealPerKill*100)$"% of the earned size of the player you killed";
-	
-	ReceiveChatMessage("",Scalingrules,EFAC_ALL,false,false,,false);
-		
-	`if(`isdefined(GS_FFA))
-		ReceiveChatMessage("","Giant Slayers Free-For-All: The player who achieved the largest size by the end of the round wins!",EFAC_ALL,false,true,"#04B404",false);
-	`endif
-	
+	ReceiveChatMessage("","Welcome to Age of Giants",EFAC_ALL,false,false,,false);
+
 	SetTimer(3.0f, false, 'ShowGiantSlayersHeader');
 }
 
@@ -32,142 +26,10 @@ simulated function ShowGiantSlayersHeader()
 {
 	//ReceiveLocalizedHeaderText(Localize("ChatMessages", "Welcome", "GiantSlayers"),5.0f);
 	//Localization is broken at the moment...
-	ReceiveLocalizedHeaderText("Welcome to Giant Slayers!",5.0f);
+	ReceiveLocalizedHeaderText("Welcome to Age of Giants!",5.0f);
 }
 
-reliable client function ClientNotifyChangedScale(float NewScale, float EnemyScale, float ScaleSappedFromEnemy, float FlatScaleIncrease, float HealthSappedFromEnemy)
-{
-	local `{GAMEMODE}Pawn MyPawn;
-	local string Message;
-	local int ThresholdIndex, i;
-	
-	MyPawn = `{GAMEMODE}Pawn(Pawn);
-	
-	if(NewScale <= MyPawn.default.GiantScale)
-	{
-		return;
-	}
-	
-	if(EnemyScale > 0)
-	{
-		Message = "You killed an enemy who was at"@Round(EnemyScale*100)$"% size. You get a bonus "$Round(ScaleSappedFromEnemy*100)$"% size increase, for a total"@Round(FlatScaleIncrease*100+ScaleSappedFromEnemy*100)$"% growth. You also heal "$Round(HealthSappedFromEnemy)$"HP"; 
-		ReceiveChatMessage("",Message,EFAC_ALL,false,false,,false);
-	}
-	
-	ThresholdIndex = 0;
-	for(i = 0; i < SizeMessageThresholds.length; ++i)
-	{
-		if(NewScale >= SizeMessageThresholds[i])
-		{
-			ThresholdIndex = i;
-		}
-		else
-		{
-			break;
-		}
-	}
-
-	//We'll take the localized string, then replace the first occurence of "{SCALE}" with the actual scale
-	//handling variables this way lets different languages move them around to where they make the most sense
-	//Message = Localize("ChatMessages", "SizeMessage"$ThresholdIndex, "GiantSlayers");
-	
-	//Localization is broken at the moment, so this quick horror switch will replace it...
-	switch(ThresholdIndex)
-	{
-		case 0:
-			Message = "You're tiny ({SCALE})";
-			break;
-		case 1: 
-			Message = "You're just a little small ({SCALE})";
-			break;
-		case 2:
-			Message = "You're about average ({SCALE})";
-			break;
-		case 3:
-			Message = "You're a bit bigger than normal ({SCALE})";
-			break;
-		case 4:
-			Message = "You're intimidatingly big ({SCALE})";
-			break;
-		case 5:
-			Message = "You're twice Malric's size, it's starting to get to your head ({SCALE})";
-			break;
-		case 6:
-			Message = "You're more than thrice any normal soldier's height ({SCALE})";
-			break;
-		case 7:
-			Message = "You're a certified giant ({SCALE})";
-			break;
-		case 8:
-			Message = "You're enormous ({SCALE})";
-			break;
-		case 9:
-			Message = "You're a titan ({SCALE})";
-			break;
-		case 10:
-			Message = "The sky is getting close ({SCALE})";
-			break;
-		case 11:
-			Message = "You are the sky ({SCALE})";
-			break;
-		case 12:
-			Message = "No one can touch me ({SCALE})";
-			break;
-		case 13:
-			Message = "Puny humans will never understand my existence ({SCALE})";
-			break;
-		case 14:
-		default:
-			Message = "Fee-fi-fo-fum, I smell the blood of soon dead men ({SCALE})";
-			break;
-	}
-	
-	Message = Repl(Message, "{SCALE}", Round(NewScale * 100.0)$"%");
-	
-	ReceiveChatMessage("",Message,EFAC_ALL,false,false,,false);
-}
-
-exec function GS_Scale(float NewScale)
-{
-	if(Worldinfo.NetMode == NM_Standalone)
-	{
-		`{GAMEMODE}Pawn(Pawn).Health *= (NewScale / `{GAMEMODE}Pawn(Pawn).GiantScale);
-		`{GAMEMODE}Pawn(Pawn).HealthMax *= (NewScale / `{GAMEMODE}Pawn(Pawn).GiantScale);
-		`{GAMEMODE}Pawn(Pawn).SetGiantScale(NewScale);
-	}
-}
-
-exec function GS_TestScaleSoundA(float Scale)
-{
-	if(Worldinfo.NetMode == NM_Standalone)
-	{
-		`{GAMEMODE}Pawn(Pawn).TestScaleSoundA(Scale);
-	}
-}
-
-exec function GS_TestScaleSoundB(float Scale)
-{
-	if(Worldinfo.NetMode == NM_Standalone)
-	{
-		`{GAMEMODE}Pawn(Pawn).TestScaleSoundB(Scale);
-	}
-}
 
 defaultproperties
 {
-	SizeMessageThresholds(0) = 0;
-	SizeMessageThresholds(1) = 0.9;
-	SizeMessageThresholds(2) = 1.0;
-	SizeMessageThresholds(3) = 1.15;
-	SizeMessageThresholds(4) = 1.5;
-	SizeMessageThresholds(5) = 2.0;
-	SizeMessageThresholds(6) = 3.0;
-	SizeMessageThresholds(7) = 5.0;
-	SizeMessageThresholds(8) = 7.0;
-	SizeMessageThresholds(9) = 10.0;
-	SizeMessageThresholds(10) = 15.0;
-	SizeMessageThresholds(11) = 20.0;
-	SizeMessageThresholds(12) = 30.0;
-	SizeMessageThresholds(13) = 40.0;
-	SizeMessageThresholds(14) = 50.0;
 }

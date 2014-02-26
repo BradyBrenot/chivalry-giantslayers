@@ -1,19 +1,10 @@
+class AOGGame extends AOCGame;
+
 //SetGameType returns which game mode should be used for which map prefix
 //You can do whatever you want with this. You can even use Options 
 // (options => the ?blah=blah things added after the map name when launching a server or in the map list)
 //to add even more variety. See the ParseOption function in Src\Engine\Classes\GameInfo.uc
 var config array<GameTypePrefix>	SDKPrefixes;
-
-var float ScaleStealPerKill;
-var float FlatScalePerKill;
-var float ScaleMultiplierPerKill;
-var float PerKillHealingMultiplier;
-
-var float MaxLifestealPerKill;
-var float MinLifestealPerKill;
-var float LifeStealSizeDifferenceAtMin;
-
-var float GiantHealthRegenScaleMultiplier;
 
 static event class<GameInfo> SetGameType(string MapName, string Options, string Portal)
 {
@@ -44,142 +35,20 @@ static event class<GameInfo> SetGameType(string MapName, string Options, string 
 	return super.SetGameType(MapName, Options, Portal);
 }
 
-/*function PostBeginPlay()
-{
-	local WaterVolume WV;
-	
-	super.PostBeginPlay();
-	
-	foreach AllActors(class'WaterVolume',WV)
-    {
-        WV.bWaterVolume = false;
-    }
-}*/
-
 function ScoreKill(Controller Killer, Controller Other)
 {
-	local `{GAMEMODE}Pawn KillerPawn, OtherPawn;
-	`if(`isdefined(GS_FFA))
-		local int NewHighScore;
-	`endif
-	local bool bTeamKill;
-
-	`if(`isdefined(GS_FFA))
-		bTeamKill = false;
-	`else
-		bTeamKill = Killer.PlayerReplicationInfo.Team == Other.PlayerReplicationInfo.Team;
-	`endif
-	
-	if(!bTeamKill)
-	{
-		KillerPawn = `{GAMEMODE}Pawn(Killer.Pawn);
-		OtherPawn = `{GAMEMODE}Pawn(Other.Pawn);
-		
-		if(KillerPawn != none)
-		{
-			ScaleFromKill(KillerPawn, OtherPawn);
-		}
-	}
-	
-	`if(`isdefined(GS_FFA))
-		AOCPRI(Killer.PlayerReplicationInfo).Score = Max(Round(KillerPawn.GiantScale*100), AOCPRI(Killer.PlayerReplicationInfo).Score);
-		AOCPRI(Killer.PlayerReplicationInfo).NumKills += 1;
-		Killer.PlayerReplicationInfo.bForceNetUpdate = TRUE;
-
-		if (!isFirstBlood)
-		{
-			isFirstBlood = true;
-			BroadcastSystemMessage(3,class'AOCSystemMessages'.static.CreateLocalizationdata("INVALIDDATA",  Killer.PlayerReplicationInfo.PlayerName, ""), 
-				class'AOCSystemMessages'.static.CreateLocalizationdata("INVALIDDATA", Other.PlayerReplicationInfo.PlayerName, ""), EFAC_ALL);
-		}
-		
-		// After 2 minutes - Start displaying taking the lead messages
-		if (RoundTime * 60 - TimeLeft > 120)
-		{
-			NewHighScore = Max(CurHighestScore, AOCPRI(Killer.PlayerReplicationInfo).Score);
-			if (NewHighScore > CurHighestScore)
-			{
-				if (PrevHigh == none || PrevHigh != Killer.PlayerReplicationInfo)
-				{
-					PrevHigh = Killer.PlayerReplicationInfo;
-					BroadcastSystemMessage(4, class'AOCSystemMessages'.static.CreateLocalizationdata("INVALIDDATA",  Killer.PlayerReplicationInfo.PlayerName,""),,EFAC_ALL);
-				}
-			}
-			CurHighestScore = NewHighScore;
-		}
-
-		// check score again to see if team won
-		if ( (Killer != None) && bScoreTeamKills )
-			CheckScore(Killer.PlayerReplicationInfo);
-	`else
-		super.ScoreKill(Killer, Other);
-	`endif
+	super.ScoreKill(Killer, Other);
 }
-
-function ScaleFromKill(`{GAMEMODE}Pawn Killer, `{GAMEMODE}Pawn Other)
-{
-	local float NewScale;
-	local float ScaleSteal;
-	local float	HealingAmount;
-	local float ActualLifeSteal;
-	
-	NewScale = Killer.GiantScale*ScaleMultiplierPerKill + FlatScalePerKill;
-	if(Other != none)
-	{
-		ScaleSteal = (Other.GiantScale - class'`{GAMEMODE}Pawn'.default.GiantScale) * ScaleStealPerKill;
-		NewScale += ScaleSteal;
-	}
-	
-	Killer.Health *= (NewScale / Killer.GiantScale);
-	Killer.HealthMax *= (NewScale / Killer.GiantScale);
-	Killer.HealAmount = (1 - GiantHealthRegenScaleMultiplier) * Killer.HealAmount + GiantHealthRegenScaleMultiplier * ((NewScale / Killer.GiantScale) * Killer.HealAmount);
-	
-	if(Other != none)
-	{
-		ActualLifeSteal = Lerp(MaxLifestealPerKill, MinLifestealPerKill, FClamp((Killer.GiantScale / Other.GiantScale - 1)/ LifeStealSizeDifferenceAtMin, 0.0, 1.0));
-	
-		HealingAmount = Other.HealthMax * ActualLifeSteal + Killer.HealthMax * PerKillHealingMultiplier;
-		Killer.Health = FMin(Killer.Health + HealingAmount, Killer.HealthMax);
-		Killer.Stamina = FMin(Killer.Stamina + HealingAmount, Killer.MaxStamina);
-	}
-	
-	`{GAMEMODE}PlayerController(Killer.Controller).ClientNotifyChangedScale(NewScale, Other.GiantScale, ScaleSteal, ScaleSteal + FlatScalePerKill + Killer.GiantScale*(ScaleMultiplierPerKill-1), HealingAmount);
-	
-	Killer.SetGiantScale(NewScale);
-}
-
-`if(`isdefined(GS_FFA))
-// Don't display FFA objective chat message, because we have a different objective
-function PerformOnFirstSpawn(Controller NewPlayer)
-{
-	super(AOCGame).PerformOnFirstSpawn(NewPlayer);
-}
-`endif
 
 DefaultProperties
 {
-    PlayerControllerClass=class'`{GAMEMODE}PlayerController'
-    DefaultPawnClass=class'`{GAMEMODE}Pawn'
+    PlayerControllerClass=class'AOGPlayerController'
+    DefaultPawnClass=class'AOGMobilePawn'
 	
 	//This is the name that shows in the server browser for this mod:
-	ModDisplayString="Giant Slayers v1.2"
+	ModDisplayString="Age of Giants v1.0"
 	
 	//SPAWN FASTER
 	SpawnWaveInterval=1
 	MinimumRespawnTime=0
-	
-	//increasing the "Multipliers" makes this more steamrolly because they're based off of a player's _current_ scale, not off of "normal"
-	ScaleStealPerKill = 0.25
-	FlatScalePerKill = 0.09
-	ScaleMultiplierPerKill = 1.02
-	
-	PerKillHealingMultiplier = 0.0
-	
-	//Scale lifesteal%, because players who are bigger can score kills more easily...
-	MaxLifestealPerKill = 0.25
-	MinLifestealPerKill = 0.15
-	LifeStealSizeDifferenceAtMin = 2.0
-	
-	//Don't scale health regen up at full speed beacause it could easily get ridiculous...
-	GiantHealthRegenScaleMultiplier = 0.5
 }

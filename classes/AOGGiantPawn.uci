@@ -1,3 +1,5 @@
+class AOGGiantPawn extends AOCPawn;
+
 var repnotify float GiantScale;
 var CylinderComponent Bubble;
 
@@ -62,8 +64,6 @@ simulated function SetGiantScale(float NewScale)
 	Mesh.SetScale(1.5 * GiantScale);
 	OwnerMesh.SetScale(1.5 * GiantScale);
 	
-	//`{GAMEMODE}PlayerController(Controller).ClientDisplayConsoleMessage("Old height: "@GetCollisionHeight());
-	
 	//Push the pawn up a bit before rescaling to avoid clipping into the ground
 	if(Role == ROLE_AUTHORITY || IsLocallyControlled())
 	{
@@ -76,8 +76,6 @@ simulated function SetGiantScale(float NewScale)
 	
 	//Going to gradually scale down the bubble so it's totally uninvolved with large giants
 	Bubble.SetCylinderSize(GiantScale * Max(36, 39 - 2 * Max(0, GiantScale - 1)), GiantScale * 65);
-	
-	//`{GAMEMODE}PlayerController(Controller).ClientDisplayConsoleMessage("New height: "@GetCollisionHeight());
 	
 	if(Role == ROLE_AUTHORITY || IsLocallyControlled())
 	{
@@ -267,7 +265,8 @@ singular event BaseChange()
 	//Check for unallowed pushables
 	Pushable = AOCObjective_Pushable(Base);
 
-	if (`{GAMEMODE}Pawn(Base) != None && `{GAMEMODE}Pawn(Base).GiantScale <= GiantScale / CrushDifferenceThreshold)
+	if (AOGMobilePawn(Base) != None 
+		|| (AOGGiantPawn(Base) != None && AOGGiantPawnPawn(Base).GiantScale <= GiantScale / CrushDifferenceThreshold))
 	{
 		Pawn(Base).CrushedBy(self);
 	}
@@ -319,7 +318,7 @@ singular event BaseChange()
 
 function CrushedBy(Pawn OtherPawn)
 {
-	if(`{GAMEMODE}Pawn(OtherPawn).GiantScale >= CrushDifferenceThreshold * GiantScale)
+	if(AOGGiantPawn(OtherPawn).GiantScale >= CrushDifferenceThreshold * GiantScale)
 	{
 		TakeDamage(900000, OtherPawn.Controller, Location, vect(0.0f, 0.0f, 0.0f), class'AOCDmgType_Fists');
 	}
@@ -329,12 +328,12 @@ function CrushedBy(Pawn OtherPawn)
 event TakeDamage(int Damage, Controller InstigatedBy, vector HitLocation, vector Momentum, class<DamageType> DamageType, optional TraceHitInfo myHitInfo, optional Actor DamageCauser)
 {
 	local float GiantDamageScale;
-	local `{GAMEMODE}Pawn EnemyPawn;
+	local AOGGiantPawn EnemyPawn;
 	
-	EnemyPawn = `{GAMEMODE}Pawn(DamageCauser);
+	EnemyPawn = AOGGiantPawnPawn(DamageCauser);
 	if(EnemyPawn == none)
 	{
-		EnemyPawn = `{GAMEMODE}Pawn(InstigatedBy.Pawn);
+		EnemyPawn = AOGGiantPawnPawn(InstigatedBy.Pawn);
 	}
 	
 	if(EnemyPawn != none)
@@ -417,7 +416,8 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 	bParry = false;
 	bFlinch = false;
 	
-	bCannotFlinchDueToScale = `{GAMEMODE}Pawn(Info.HitActor).GiantScale/GiantScale >= FlinchImpossibilityThreshold;
+	bCannotFlinchDueToScale = AOGMobilePawn(Info.HitActor) != none 
+		|| AOGGiantPawn(Info.HitActor).GiantScale/GiantScale >= FlinchImpossibilityThreshold;
 
 	//if(AOCPlayerController(Info.HitActor.Controller).bBoxParrySystem)
 	//{
@@ -429,7 +429,8 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 			bParry = false;
 		
 		//@GS: cannot parry someone too small or too large
-		if (`{GAMEMODE}Pawn(Info.HitActor).GiantScale/GiantScale >= ParryImpossibilityThreshold || GiantScale / `{GAMEMODE}Pawn(Info.HitActor).GiantScale >= ParryImpossibilityThreshold)
+		if (AOGMobilePawn(Info.HitActor) != none
+		 || AOGGiantPawn(Info.HitActor).GiantScale/GiantScale >= ParryImpossibilityThreshold || GiantScale / AOGGiantPawn(Info.HitActor).GiantScale >= ParryImpossibilityThreshold)
 		{
 			bParry = false;
 		}
