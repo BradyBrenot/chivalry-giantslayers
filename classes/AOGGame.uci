@@ -1,3 +1,7 @@
+/**
+* Generic AOG game mode
+*/
+
 class AOGGame extends AOCGame;
 
 //SetGameType returns which game mode should be used for which map prefix

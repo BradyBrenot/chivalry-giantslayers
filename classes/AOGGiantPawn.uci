@@ -1,3 +1,7 @@
+/**
+* An enormous AOG Pawn supporting scale replication, "giant attacks", etc.
+*/
+
 class AOGGiantPawn extends AOCPawn;
 
 var repnotify float GiantScale;

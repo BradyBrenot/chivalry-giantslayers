@@ -1,3 +1,7 @@
+/**
+* The generic AOG Player Controller
+*/
+
 class AOGPlayerController extends AOCPlayerController;
 
 var array<float> SizeMessageThresholds;
