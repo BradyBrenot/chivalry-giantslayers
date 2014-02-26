@@ -1,1 +1,0 @@
-class GiantSlayersFamilyInfo_Mason_Vanguard extends AOCFamilyInfo_Mason_Vanguard;

@@ -1,1 +1,0 @@
-class GiantSlayersFamilyInfo_Agatha_Vanguard extends AOCFamilyInfo_Agatha_Vanguard;

@@ -1,1 +1,0 @@
-class GiantSlayersFamilyInfo_Agatha_Archer extends AOCFamilyInfo_Agatha_Archer;

@@ -1,1 +1,0 @@
-class GiantSlayersFamilyInfo_Mason_Archer extends AOCFamilyInfo_Mason_Archer;
