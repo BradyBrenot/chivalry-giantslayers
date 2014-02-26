@@ -36,6 +36,8 @@ static event class<GameInfo> SetGameType(string MapName, string Options, string 
 		}
 	}
 	
+	LogAlwaysInternal("SetGameType could not find a game");
+	
 	return super.SetGameType(MapName, Options, Portal);
 }
 

@@ -270,7 +270,7 @@ singular event BaseChange()
 	Pushable = AOCObjective_Pushable(Base);
 
 	if (AOGMobilePawn(Base) != None 
-		|| (AOGGiantPawn(Base) != None && AOGGiantPawnPawn(Base).GiantScale <= GiantScale / CrushDifferenceThreshold))
+		|| (AOGGiantPawn(Base) != None && AOGGiantPawn(Base).GiantScale <= GiantScale / CrushDifferenceThreshold))
 	{
 		Pawn(Base).CrushedBy(self);
 	}
@@ -334,10 +334,10 @@ event TakeDamage(int Damage, Controller InstigatedBy, vector HitLocation, vector
 	local float GiantDamageScale;
 	local AOGGiantPawn EnemyPawn;
 	
-	EnemyPawn = AOGGiantPawnPawn(DamageCauser);
+	EnemyPawn = AOGGiantPawn(DamageCauser);
 	if(EnemyPawn == none)
 	{
-		EnemyPawn = AOGGiantPawnPawn(InstigatedBy.Pawn);
+		EnemyPawn = AOGGiantPawn(InstigatedBy.Pawn);
 	}
 	
 	if(EnemyPawn != none)
@@ -778,14 +778,4 @@ defaultproperties
 	FlinchImpossibilityThreshold = 3.0
 	
 	GiantDamageScaleMultiplier = 0.5
-	
-	// Use custom classes (replace projectile weapons with scaling ones; remove mode-inappropriate weapons)
-	AllClasses(ECLASS_Archer)=class'GiantSlayersFamilyInfo_Agatha_Archer'
-	AllClasses(ECLASS_ManAtArms)=class'GiantSlayersFamilyInfo_Agatha_ManAtArms'
-	AllClasses(ECLASS_Vanguard)=class'GiantSlayersFamilyInfo_Agatha_Vanguard'
-	AllClasses(ECLASS_Knight)=class'GiantSlayersFamilyInfo_Agatha_Knight'
-	AllClasses(5)=class'GiantSlayersFamilyInfo_Mason_Archer'
-	AllClasses(6)=class'GiantSlayersFamilyInfo_Mason_ManAtArms'
-	AllClasses(7)=class'GiantSlayersFamilyInfo_Mason_Vanguard'
-	AllClasses(8)=class'GiantSlayersFamilyInfo_Mason_Knight'
 }
