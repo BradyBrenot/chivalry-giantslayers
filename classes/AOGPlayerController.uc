@@ -7,7 +7,8 @@
 * At least I can keep things in separate states.
 */
 
-class AOGPlayerController extends AOCPlayerController;
+class AOGPlayerController extends AOCPlayerController
+	dependson(AOGMobilePawn);
 
 var array<float> SizeMessageThresholds;
 
@@ -78,8 +79,78 @@ state PlayerGrappling extends PlayerWalking
 {
 	function ProcessMove(float DeltaTime, vector NewAccel, eDoubleClickDir DoubleClickMove, rotator DeltaRot)
 	{
+		if(Pawn.Physics == PHYS_Falling && !AOGMobilePawn(Pawn).bLanded)
+		{
+			Pawn.SetPhysics(PHYS_Custom);
+		}
 		super.ProcessMove(DeltaTime, NewAccel, DoubleClickMove, DeltaRot);
 	}
+}
+
+simulated function rotator CalcAim()
+{
+	local Vector RealStartLoc;
+	local rotator Aim;
+
+	AOCPawn(Pawn).OwnerMesh.GetSocketWorldLocationAndRotation(AOCPawn(Pawn).CameraSocket, RealStartLoc, Aim);
+
+	if (!AOCPawn(Pawn).IsFirstPerson())
+	{
+		Aim = CalcThirdPersonAim(RealStartLoc, Aim);
+	}
+
+	return Aim;
+}
+
+simulated function rotator CalcThirdPersonAim(vector RealStartLoc, rotator Aim)
+{
+	local Vector CameraLoc;
+	local Rotator CameraAim;
+	local float CameraFOV;
+	local Vector TargetLoc;
+	local Vector HitLoc;
+	local Vector HitNormal;
+
+	// ray trace along the camera sight to find target location
+	AOCPawn(Pawn).CalcThirdPersonCam(1.0f, CameraLoc, CameraAim, CameraFOV);
+
+	CameraLoc = CameraLoc + (Vect(1,0,0) >> CameraAim) * 130.0f;
+	TargetLoc = CameraLoc + (Vect(1,0,0) >> CameraAim) * 10000.0f;
+
+	if( Trace(HitLoc, HitNormal, TargetLoc, CameraLoc, true) != None )
+	{
+		// Adjust slightly for close objects
+		if (VSize(HitLoc - RealStartLoc) < 200.0f)
+		{
+			HitLoc = HitLoc + Normal(HitLoc - CameraLoc) * 50.0f;
+		}
+
+		TargetLoc = HitLoc;
+	}
+
+	return Rotator(TargetLoc - RealStartLoc);
+}
+
+//Input overrides that only make sense with default, QWERTY inputs! YAY!
+exec function PerformFeint(optional bool bMeleeOnly = false)
+{
+	AOGMobilePawn(Pawn).FireGrappler(GRAPPLER_LEFT, CalcAim());
+}
+
+exec function Use()
+{
+	AOGMobilePawn(Pawn).FireGrappler(GRAPPLER_RIGHT, CalcAim());
+}
+
+//We might still want "Use", but we definitely don't need "Shove" for anything, so substitute
+exec function DoShove()
+{
+	Super.Use();
+}
+
+exec function StopShove()
+{
+	Super.EndUseAction();
 }
 
 defaultproperties
