@@ -17,6 +17,7 @@ enum EGrapplers
 };
 
 var Actor GrapplePoints[EGrapplers];
+var float GrappleRopeLength[EGrapplers];
 
 simulated function TakeFallingDamage()
 {
@@ -54,6 +55,8 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 	local Actor HitActor;
 	local Vector HitLocation, HitNormal;
 
+	local int i;
+
 	// test for slope to avoid using air control to climb walls
 	TickAirControl = AirControl;
 	Acceleration.Z = 0;
@@ -88,6 +91,15 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 		else 
 		{
 			timeTick = remainingTime;
+		}
+
+		//k * (d - pd)
+		for(i = 0; i < GRAPPLER_MAX; ++i)
+		{
+			if(AOGGrappleAttachment(GrapplePoints[i]) != none && VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) > GrappleRopeLength[i])
+			{
+				Acceleration += Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * 200 * ( VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) - GrappleRopeLength[i]);
+			}
 		}
 
 		remainingTime -= timeTick;
@@ -147,9 +159,23 @@ simulated function AOCSetCharacterClassFromInfo(class<AOCFamilyInfo> Info)
 
 function FireGrappler(EGrapplers Grappler, Rotator FireRot)
 {
+	local AOGGrappleProj SpawnedProjectile;
+	local Vector RealStartLoc;
+	local rotator RealRot;
+
+	OwnerMesh.GetSocketWorldLocationAndRotation(CameraSocket, RealStartLoc, RealRot);
+
 	if(IsGrapplerActive(Grappler))
 	{
 		ReleaseGrappler(Grappler);
+	}
+
+	SpawnedProjectile = Spawn(class'AOGGrappleProj',,, RealStartLoc, FireRot);
+	if ( SpawnedProjectile != None )
+	{
+		SpawnedProjectile.Init(Vector(FireRot));
+		GrapplePoints[Grappler] = SpawnedProjectile;
+		SpawnedProjectile.PawnOwner = self;
 	}
 }
 
@@ -166,10 +192,35 @@ function ReleaseGrappler(EGrapplers Grappler)
 
 function OnGrappleProjAttached(AOGGrappleProj GrappleProj)
 {
+	local AOGGrappleAttachment SpawnedAttachment;
+	local int i;
+	local EGrapplers FoundGrappler;
 
+	FoundGrappler = GRAPPLER_MAX;
+
+	LogAlwaysInternal("Not yet found grappler:"@FoundGrappler);
+
+	for(i = 0; i < GRAPPLER_MAX; ++i)
+	{
+		if(GrapplePoints[i] == GrappleProj)
+		{
+			FoundGrappler = EGrapplers(i);
+			break;
+		}
+	}
+
+	LogAlwaysInternal("Found grappler:"@FoundGrappler);
+
+	if(FoundGrappler != GRAPPLER_MAX)
+	{
+		SpawnedAttachment = Spawn(class'AOGGrappleAttachment',,, GrappleProj.Location, GrappleProj.Rotation);
+		LogAlwaysInternal("Spawned grappler:"@SpawnedAttachment@GrappleProj.Location);
+		GrapplePoints[FoundGrappler] = SpawnedAttachment;
+		GrappleRopeLength[FoundGrappler] = VSize(Location - SpawnedAttachment.Location);
+	}
 }
 
-function OnGrappleProjFailed(AOGGrappleProj GrappleProj)
+function OnGrappleProjDestroyed(AOGGrappleProj GrappleProj)
 {
 
 }
