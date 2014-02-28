@@ -40,4 +40,6 @@ defaultproperties
 	End Object
 	Mesh=StaticMeshComponent0
 	Components.add(StaticMeshComponent0)
+	Speed=+20000.000000
+	MaxSpeed=0
 }

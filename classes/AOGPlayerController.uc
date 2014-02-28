@@ -79,10 +79,10 @@ state PlayerGrappling extends PlayerWalking
 {
 	function ProcessMove(float DeltaTime, vector NewAccel, eDoubleClickDir DoubleClickMove, rotator DeltaRot)
 	{
-		if(Pawn.Physics == PHYS_Falling && !AOGMobilePawn(Pawn).bLanded)
-		{
-			Pawn.SetPhysics(PHYS_Custom);
-		}
+		//if(Pawn.Physics == PHYS_Falling && !AOGMobilePawn(Pawn).bLanded)
+		//{
+		//	Pawn.SetPhysics(PHYS_Custom);
+		//}
 		super.ProcessMove(DeltaTime, NewAccel, DoubleClickMove, DeltaRot);
 	}
 }
@@ -134,12 +134,43 @@ simulated function rotator CalcThirdPersonAim(vector RealStartLoc, rotator Aim)
 //Input overrides that only make sense with default, QWERTY inputs! YAY!
 exec function PerformFeint(optional bool bMeleeOnly = false)
 {
-	AOGMobilePawn(Pawn).FireGrappler(GRAPPLER_LEFT, CalcAim());
+	FireGrapplerForwardOrRelease(GRAPPLER_LEFT);
 }
 
 exec function Use()
 {
-	AOGMobilePawn(Pawn).FireGrappler(GRAPPLER_RIGHT, CalcAim());
+	FireGrapplerForwardOrRelease(GRAPPLER_RIGHT);
+}
+
+simulated function FireGrapplerForwardOrRelease(EGrapplers Grappler)
+{
+	if(AOGMobilePawn(Pawn).IsGrapplerActive(Grappler))
+	{
+		AOGMobilePawn(Pawn).ReleaseGrappler(Grappler);
+	}
+	else
+	{
+		FireGrapplerForward(Grappler);
+	}
+}
+
+simulated function FireGrapplerForward(EGrapplers Grappler)
+{
+	AOGMobilePawn(Pawn).FireGrappler(Grappler, CalcAim());
+}
+
+exec function DoParry()
+{
+	AOGMobilePawn(Pawn).StartReeling(GRAPPLER_LEFT);
+	AOGMobilePawn(Pawn).StartReeling(GRAPPLER_RIGHT);
+	ClientDisplayConsoleMessage("REELING");
+}
+
+exec function LowerShield()
+{
+	AOGMobilePawn(Pawn).StopReeling(GRAPPLER_LEFT);
+	AOGMobilePawn(Pawn).StopReeling(GRAPPLER_RIGHT);
+	ClientDisplayConsoleMessage("STOP REELING");
 }
 
 //We might still want "Use", but we definitely don't need "Shove" for anything, so substitute
@@ -151,6 +182,19 @@ exec function DoShove()
 exec function StopShove()
 {
 	Super.EndUseAction();
+}
+
+exec function AOG_SetOR(float set)
+{
+	AOGMobilePawn(Pawn).fMaxOverReel = set;
+}
+exec function AOG_SetGR(float set)
+{
+	AOGMobilePawn(Pawn).fElasticityCoeffecient = set;
+}
+exec function AOG_SetRPS(float set)
+{
+	AOGMobilePawn(Pawn).fReelPerSecond = set;
 }
 
 defaultproperties

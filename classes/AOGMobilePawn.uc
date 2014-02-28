@@ -9,6 +9,7 @@ var actor HitWallActor;
 var bool bLanded;
 var bool TestA;
 var bool TestB;
+var float fElasticityCoeffecient;
 
 enum EGrapplers
 {
@@ -18,6 +19,10 @@ enum EGrapplers
 
 var Actor GrapplePoints[EGrapplers];
 var float GrappleRopeLength[EGrapplers];
+var byte bGrappleReeling[EGrapplers];
+var float fReelPerSecond;
+var float fMaxOverReel;
+var float fReelVelocityBoost;
 
 simulated function TakeFallingDamage()
 {
@@ -54,6 +59,8 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 	local TraceHitInfo Hit;
 	local Actor HitActor;
 	local Vector HitLocation, HitNormal;
+
+	local Vector ModAccel;
 
 	local int i;
 
@@ -93,27 +100,60 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 			timeTick = remainingTime;
 		}
 
-		//k * (d - pd)
-		for(i = 0; i < GRAPPLER_MAX; ++i)
-		{
-			if(AOGGrappleAttachment(GrapplePoints[i]) != none && VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) > GrappleRopeLength[i])
-			{
-				Acceleration += Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * 200 * ( VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) - GrappleRopeLength[i]);
-			}
-		}
+		ModAccel = Acceleration;
 
 		remainingTime -= timeTick;
 		OldLocation = Location;
 
 		OldVelocity = Velocity;
-		Velocity = OldVelocity + (Acceleration + Vect(0,0,1)*GetGravityZ()) * timeTick;
+
+		//k * (d - pd)
+		for(i = 0; i < GRAPPLER_MAX; ++i)
+		{
+			if(AOGGrappleAttachment(GrapplePoints[i]) != none)
+			{
+				ModAccel += Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * fElasticityCoeffecient * ( VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) - GrappleRopeLength[i]);
+			}
+		}
+
+		Velocity = OldVelocity + (ModAccel + Vect(0,0,1)*GetGravityZ()) * timeTick;
+
+		for(i = 0; i < GRAPPLER_MAX; ++i)
+		{
+			if(AOGGrappleAttachment(GrapplePoints[i]) != none && bool(bGrappleReeling[i]))
+			{
+				Velocity += fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
+			}
+		}
+
+		DrawDebugLine(Location + 10 * Velocity , Location, 255, 0, 255, false);
+
+		for(i = 0; i < GRAPPLER_MAX; ++i)
+		{
+			if(AOGGrappleAttachment(GrapplePoints[i]) != none && VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) >= GrappleRopeLength[i])
+			{
+				//CENTRIPEDE
+				Velocity += timeTick * Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * VSize((Velocity * Velocity) / VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location));
+
+				DrawDebugLine(Location + 10 * (Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * VSize((Velocity * Velocity) / VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location))) , Location, 0, 255, 0, false);
+			}
+		}
 
 		HitWallActor = none;
+		HitWallHitNormal = Vect(0,0,0);
 
 		MoveSmooth(Velocity * TimeTick);
 
+		for(i = 0; i < GRAPPLER_MAX; ++i)
+		{
+			if(AOGGrappleAttachment(GrapplePoints[i]) != none && bool(bGrappleReeling[i]))
+			{
+				GrappleRopeLength[i] = VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
+			}
+		}
+
 		//event HitWall may be called while in MoveSmooth if we hit something
-		if(HitWallActor != none)
+		if(VSize(HitWallHitNormal) != 0)
 		{
 			//landed on walkable ground
 			if (HitWallHitNormal.Z >= WalkableFloorZ)
@@ -190,6 +230,16 @@ function ReleaseGrappler(EGrapplers Grappler)
 	GrapplePoints[Grappler] = none;
 }
 
+function StartReeling(EGrapplers Grappler)
+{
+	bGrappleReeling[Grappler] = byte(true);
+}
+
+function StopReeling(EGrapplers Grappler)
+{
+	bGrappleReeling[Grappler] = byte(false);
+}
+
 function OnGrappleProjAttached(AOGGrappleProj GrappleProj)
 {
 	local AOGGrappleAttachment SpawnedAttachment;
@@ -227,4 +277,8 @@ function OnGrappleProjDestroyed(AOGGrappleProj GrappleProj)
 
 defaultproperties
 {
+	fElasticityCoeffecient=0
+	fReelPerSecond=400
+	fMaxOverReel=10
+	fReelVelocityBoost=200
 }
