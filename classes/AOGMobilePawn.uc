@@ -62,6 +62,9 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 	local Vector ModAccel;
 
+	local Vector TangentialVelocity;
+	local Vector NonTangentialVelocity;
+
 	local int i;
 
 	// test for slope to avoid using air control to climb walls
@@ -107,35 +110,49 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 		OldVelocity = Velocity;
 
-		//k * (d - pd)
+		Velocity = OldVelocity + (ModAccel + Vect(0,0,1)*GetGravityZ()) * timeTick;	
+
 		for(i = 0; i < GRAPPLER_MAX; ++i)
 		{
-			if(AOGGrappleAttachment(GrapplePoints[i]) != none)
+			if(AOGGrappleAttachment(GrapplePoints[i]) != none && VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) >= GrappleRopeLength[i] - 30)
 			{
-				ModAccel += Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * fElasticityCoeffecient * ( VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) - GrappleRopeLength[i]);
+				//CENTRIPEDE
+				NonTangentialVelocity = Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * (Velocity dot Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location));
+				TangentialVelocity = Velocity - NonTangentialVelocity;	
+
+				if(VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) >= GrappleRopeLength[i])
+				{
+					//cancel (@TODO - a portion of?) non-tangential velocity iff it's going _away_ from grapple point; going towards is fine
+					//also, this is a kind of stupid way of calculating this isn't it?
+
+					if( VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) < VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - (Location + NonTangentialVelocity*timeTick)))
+					{
+						Velocity = TangentialVelocity;
+					}
+
+					//1: Centripedal Force on the movement tangential to the sphere
+					Velocity += timeTick * Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * VSize(((TangentialVelocity * TangentialVelocity) / VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location)));
+
+					//Improve?: take NonTangentialVelocity; figure out if any of it would make us move past the rope's length. If so, cap out that amount? I don't know.
+				}
 			}
 		}
-
-		Velocity = OldVelocity + (ModAccel + Vect(0,0,1)*GetGravityZ()) * timeTick;
 
 		for(i = 0; i < GRAPPLER_MAX; ++i)
 		{
 			if(AOGGrappleAttachment(GrapplePoints[i]) != none && bool(bGrappleReeling[i]))
 			{
-				Velocity += fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
+				DrawDebugLine(Location + 10 * fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) , Location, 255, 2, 255, false);
+				Velocity += timeTick*fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
 			}
 		}
 
-		DrawDebugLine(Location + 10 * Velocity , Location, 255, 0, 255, false);
-
+		//Springyness of the rope
 		for(i = 0; i < GRAPPLER_MAX; ++i)
 		{
-			if(AOGGrappleAttachment(GrapplePoints[i]) != none && VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) >= GrappleRopeLength[i])
+			if(AOGGrappleAttachment(GrapplePoints[i]) != none && VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) > GrappleRopeLength[i])
 			{
-				//CENTRIPEDE
-				Velocity += timeTick * Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * VSize((Velocity * Velocity) / VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location));
-
-				DrawDebugLine(Location + 10 * (Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * VSize((Velocity * Velocity) / VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location))) , Location, 0, 255, 0, false);
+				Velocity += timeTick * Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) * fElasticityCoeffecient * ( VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) - GrappleRopeLength[i]);
 			}
 		}
 
@@ -148,7 +165,7 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 		{
 			if(AOGGrappleAttachment(GrapplePoints[i]) != none && bool(bGrappleReeling[i]))
 			{
-				GrappleRopeLength[i] = VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
+				GrappleRopeLength[i] = FMin(GrappleRopeLength[i],VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location));
 			}
 		}
 
@@ -277,7 +294,7 @@ function OnGrappleProjDestroyed(AOGGrappleProj GrappleProj)
 
 defaultproperties
 {
-	fElasticityCoeffecient=0
+	fElasticityCoeffecient=2
 	fReelPerSecond=400
 	fMaxOverReel=10
 	fReelVelocityBoost=200
