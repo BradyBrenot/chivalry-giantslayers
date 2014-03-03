@@ -10,6 +10,7 @@ var bool bLanded;
 var bool TestA;
 var bool TestB;
 var float fElasticityCoeffecient;
+var float fDragCoeffecient;
 
 enum EGrapplers
 {
@@ -23,6 +24,8 @@ var byte bGrappleReeling[EGrapplers];
 var float fReelPerSecond;
 var float fMaxOverReel;
 var float fReelVelocityBoost;
+var float fReelMaxVelocity;
+var float fBreakingVelocity;
 
 simulated function TakeFallingDamage()
 {
@@ -64,6 +67,10 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 	local Vector TangentialVelocity;
 	local Vector NonTangentialVelocity;
+	
+	local Vector GAcc;
+
+	//local Vector CentripedalAcc;
 
 	local int i;
 
@@ -110,7 +117,26 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 		OldVelocity = Velocity;
 
-		Velocity = OldVelocity + (ModAccel + Vect(0,0,1)*GetGravityZ()) * timeTick;	
+		GAcc = Vect(0,0,1)*GetGravityZ();
+
+		//Reeling
+		for(i = 0; i < GRAPPLER_MAX; ++i)
+		{
+			if(AOGGrappleAttachment(GrapplePoints[i]) != none && bool(bGrappleReeling[i]))
+			{
+				DrawDebugLine(Location + 10 * fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) , Location, 255, 2, 255, false);
+
+				if((Velocity dot Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location)) < fReelMaxVelocity)
+				{
+					ModAccel += fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
+				}
+				
+				GAcc = Vect(0,0,0);
+			}
+		}
+
+		Velocity = OldVelocity + (ModAccel + GAcc) * timeTick;	
+		Velocity -= fDragCoeffecient * VSizeSq(Velocity) * timeTick * Normal(Velocity);
 
 		for(i = 0; i < GRAPPLER_MAX; ++i)
 		{
@@ -127,7 +153,17 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 					if( VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) < VSize(AOGGrappleAttachment(GrapplePoints[i]).Location - (Location + NonTangentialVelocity*timeTick)))
 					{
-						Velocity = TangentialVelocity;
+						if(VSize(NonTangentialVelocity) < fBreakingVelocity)
+						{
+							Velocity = TangentialVelocity;
+						}
+						else
+						{
+							AOGPlayerController(Controller).ClientDisplayConsoleMessage("Broken: VSize(NonTangentialVelocity)"@VSize(NonTangentialVelocity));
+							AOGGrappleAttachment(GrapplePoints[i]).Destroy();
+							GrapplePoints[i] = none;
+							continue;
+						}
 					}
 
 					//1: Centripedal Force on the movement tangential to the sphere
@@ -135,15 +171,6 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 					//Improve?: take NonTangentialVelocity; figure out if any of it would make us move past the rope's length. If so, cap out that amount? I don't know.
 				}
-			}
-		}
-
-		for(i = 0; i < GRAPPLER_MAX; ++i)
-		{
-			if(AOGGrappleAttachment(GrapplePoints[i]) != none && bool(bGrappleReeling[i]))
-			{
-				DrawDebugLine(Location + 10 * fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location) , Location, 255, 2, 255, false);
-				Velocity += timeTick*fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
 			}
 		}
 
@@ -159,7 +186,10 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 		HitWallActor = none;
 		HitWallHitNormal = Vect(0,0,0);
 
-		MoveSmooth(Velocity * TimeTick);
+		HitWallActor = Trace(HitLocation, HitNormal, Location + Velocity*TimeTick, Location, true, Vect(0,0,1) * GetCollisionHeight() + Vect(1,1,0)*2*GetCollisionRadius(), Hit);
+		HitWallHitNormal = HitNormal;			
+
+		Move(Velocity * TimeTick);
 
 		for(i = 0; i < GRAPPLER_MAX; ++i)
 		{
@@ -294,8 +324,11 @@ function OnGrappleProjDestroyed(AOGGrappleProj GrappleProj)
 
 defaultproperties
 {
-	fElasticityCoeffecient=2
+	fElasticityCoeffecient=1.5
 	fReelPerSecond=400
 	fMaxOverReel=10
-	fReelVelocityBoost=200
+	fReelVelocityBoost=600
+	fReelMaxVelocity=8800
+	fDragCoeffecient=0.0003
+	fBreakingVelocity=6000
 }

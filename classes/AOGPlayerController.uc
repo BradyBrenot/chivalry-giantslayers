@@ -11,6 +11,8 @@ class AOGPlayerController extends AOCPlayerController
 	dependson(AOGMobilePawn);
 
 var array<float> SizeMessageThresholds;
+var float DualGrappleOffset;
+var float DualGrappleOffsetAddPerScroll;
 
 //Welcome users to the game
 reliable client function ShowDefaultGameHeader()
@@ -84,6 +86,102 @@ state PlayerGrappling extends PlayerWalking
 		//	Pawn.SetPhysics(PHYS_Custom);
 		//}
 		super.ProcessMove(DeltaTime, NewAccel, DoubleClickMove, DeltaRot);
+
+		TickRopeAim(DeltaTime);
+	}
+
+	//Override this (normally on spacebar) to do the 'special' dual-grapple
+	exec function SpectatorPerspective()
+	{
+		local rotator AimRot;
+		local rotator LeftAimRot;
+		local rotator RightAimRot;
+		local vector StartLoc;
+
+		if(Pawn.Physics != PHYS_Custom)
+		{
+			return;
+		}
+
+		if(AOGMobilePawn(Pawn).IsGrapplerActive(GRAPPLER_LEFT) || AOGMobilePawn(Pawn).IsGrapplerActive(GRAPPLER_RIGHT))
+		{
+			AOGMobilePawn(Pawn).ReleaseGrappler(GRAPPLER_LEFT);
+			AOGMobilePawn(Pawn).ReleaseGrappler(GRAPPLER_RIGHT);
+			return;
+		}
+
+		AOCPawn(Pawn).OwnerMesh.GetSocketWorldLocationAndRotation(AOCPawn(Pawn).CameraSocket, StartLoc, AimRot);
+
+		AimRot = CalcAim();
+		LeftAimRot = AimRot;
+		LeftAimRot.Yaw -= DualGrappleOffset;
+		RightAimRot = AimRot;
+		RightAimRot.Yaw += DualGrappleOffset;
+
+		AOGMobilePawn(Pawn).FireGrappler(GRAPPLER_LEFT, LeftAimRot);
+		AOGMobilePawn(Pawn).FireGrappler(GRAPPLER_RIGHT, RightAimRot);
+	}
+
+	exec function StartAltFire( optional byte FireModeNum )
+	{
+		DualGrappleOffset -= DualGrappleOffsetAddPerScroll;
+	}
+
+	exec function StartStab()
+	{
+		DualGrappleOffset += DualGrappleOffsetAddPerScroll;
+	}
+
+	//MMouse
+	exec function PerformArrowCam()
+	{
+		AOGMobilePawn(Pawn).ReleaseGrappler(GRAPPLER_LEFT);
+		AOGMobilePawn(Pawn).ReleaseGrappler(GRAPPLER_RIGHT);
+	}
+}
+
+simulated function TickRopeAim(float DeltaTime)
+{
+	local rotator AimRot;
+	local rotator LeftAimRot;
+	local rotator RightAimRot;
+	local vector StartLoc;
+
+	local TraceHitInfo Hit;
+	local Actor HitActor;
+	local Vector HitLocation, HitNormal;
+
+	local float GAndB;
+
+	AOCPawn(Pawn).OwnerMesh.GetSocketWorldLocationAndRotation(AOCPawn(Pawn).CameraSocket, StartLoc, AimRot);
+
+	AimRot = CalcAim();
+	LeftAimRot = AimRot;
+	LeftAimRot.Yaw -= DualGrappleOffset;
+	RightAimRot = AimRot;
+	RightAimRot.Yaw += DualGrappleOffset;
+
+	HitActor = Trace(HitLocation, HitNormal, StartLoc + Vector(LeftAimRot)*10000, StartLoc, true, , Hit);
+	if(HitActor != none)
+	{
+		DrawDebugSphere(HitLocation , 30, 10, 255, 255, 255, false);
+	}
+
+	HitActor = Trace(HitLocation, HitNormal, StartLoc + Vector(RightAimRot)*10000, StartLoc, true, , Hit);
+	if(HitActor != none)
+	{
+		DrawDebugSphere(HitLocation , 30, 10, 255, 255, 255, false);
+	}
+
+	if(AOGMobilePawn(Pawn).GrapplePoints[GRAPPLER_LEFT] != none)
+	{
+		GAndB = Lerp(0, 255, FClamp(VSize(AOGMobilePawn(Pawn).GrapplePoints[GRAPPLER_LEFT].Location - Pawn.Location)/100, 0.0, 1.0));
+		DrawDebugLine(AOGMobilePawn(Pawn).GrapplePoints[GRAPPLER_LEFT].Location , AOGMobilePawn(Pawn).Location, 255, 255, 255, false);
+	}
+	if(AOGMobilePawn(Pawn).GrapplePoints[GRAPPLER_RIGHT] != none)
+	{
+		GAndB = Lerp(0, 255, FClamp(VSize(AOGMobilePawn(Pawn).GrapplePoints[GRAPPLER_RIGHT].Location - Pawn.Location)/100, 0.0, 1.0));
+		DrawDebugLine(AOGMobilePawn(Pawn).GrapplePoints[GRAPPLER_RIGHT].Location , AOGMobilePawn(Pawn).Location, 255, 255, 255, false);
 	}
 }
 
@@ -134,7 +232,10 @@ simulated function rotator CalcThirdPersonAim(vector RealStartLoc, rotator Aim)
 //Input overrides that only make sense with default, QWERTY inputs! YAY!
 exec function PerformFeint(optional bool bMeleeOnly = false)
 {
-	FireGrapplerForwardOrRelease(GRAPPLER_LEFT);
+	if(!bMeleeOnly)
+	{
+		FireGrapplerForwardOrRelease(GRAPPLER_LEFT);
+	}
 }
 
 exec function Use()
@@ -196,7 +297,15 @@ exec function AOG_SetRPS(float set)
 {
 	AOGMobilePawn(Pawn).fReelPerSecond = set;
 }
+exec function AOG_SetDrag(float set)
+{
+	AOGMobilePawn(Pawn).fDragCoeffecient = set;
+}
+
+
 
 defaultproperties
 {
+	DualGrappleOffset = 450;
+	DualGrappleOffsetAddPerScroll = 150;
 }
