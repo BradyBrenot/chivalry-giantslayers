@@ -63,7 +63,11 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 	local Actor HitActor;
 	local Vector HitLocation, HitNormal;
 
-	local Vector ModAccel;
+	local Actor FloorActor;
+	local Vector FloorHitLocation, FloorHitNormal;
+
+	local Vector ReelAccel;
+	local Vector InputVelocity;
 
 	local Vector TangentialVelocity;
 	local Vector NonTangentialVelocity;
@@ -74,24 +78,7 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 	local int i;
 
-	// test for slope to avoid using air control to climb walls
-	TickAirControl = AirControl;
 	Acceleration.Z = 0;
-	if( TickAirControl > 0.05 )
-	{
-		TestWalk = ( TickAirControl * AccelRate * Normal(Acceleration) + Velocity ) * deltaTime;
-		TestWalk.Z = 0;
-		if(VSize(TestWalk) != 0)
-		{
-			ColLocation = Location + CollisionComponent.Translation;
-			HitActor = Trace(HitLocation, HitNormal, ColLocation + TestWalk, ColLocation, false,,Hit);
-
-			if( HitActor != none )
-			{
-				TickAirControl = 0;
-			}
-		}
-	}
 
 	remainingTime = deltaTime;
 	timeTick = 0.1;
@@ -110,7 +97,7 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 			timeTick = remainingTime;
 		}
 
-		ModAccel = Acceleration;
+		ReelAccel = Vect(0,0,0);
 
 		remainingTime -= timeTick;
 		OldLocation = Location;
@@ -118,6 +105,32 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 		OldVelocity = Velocity;
 
 		GAcc = Vect(0,0,1)*GetGravityZ();
+
+		//Question #1: Am I walking? If so, maybe do some jazz for that
+		FloorActor = Trace(FloorHitLocation, FloorHitNormal, Location + Vect(0,0,-1)*MaxStepHeight, Location, true, Vect(0,0,1) * GetCollisionHeight() + Vect(1,1,0)*2*GetCollisionRadius(), Hit);
+
+		if(FloorActor != none && FloorHitNormal.Z >= WalkableFloorZ && VSize(OldVelocity) <= GroundSpeed)
+		{
+			//We're on walkable ground! FRICTION and WALKING come into play now...
+			InputVelocity = Normal(Acceleration - Acceleration*(Acceleration dot FloorHitNormal)) * AccelRate * timeTick;
+			if(VSize(OldVelocity + InputVelocity) < GroundSpeed)
+			{
+				OldVelocity = InputVelocity + OldVelocity;
+			}
+			else
+			{
+				OldVelocity = GroundSpeed * Normal(Acceleration);
+			}
+
+			//First figure out walking; we'll do out the rest later
+
+			//NonTangentialVelocity = FloorHitNormal * (Velocity dot FloorHitNormal);
+			//TangentialVelocity = Velocity - NonTangentialVelocity;	
+		}
+		else //air control
+		{
+			OldVelocity = OldVelocity + Acceleration * timeTick;
+		}
 
 		//Reeling
 		for(i = 0; i < GRAPPLER_MAX; ++i)
@@ -128,14 +141,14 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 				if((Velocity dot Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location)) < fReelMaxVelocity)
 				{
-					ModAccel += fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
+					ReelAccel += fReelVelocityBoost*Normal(AOGGrappleAttachment(GrapplePoints[i]).Location - Location);
 				}
 				
 				GAcc = Vect(0,0,0);
 			}
 		}
 
-		Velocity = OldVelocity + (ModAccel + GAcc) * timeTick;	
+		Velocity = OldVelocity + (ReelAccel + GAcc) * timeTick;	
 		Velocity -= fDragCoeffecient * VSizeSq(Velocity) * timeTick * Normal(Velocity);
 
 		for(i = 0; i < GRAPPLER_MAX; ++i)
@@ -183,13 +196,43 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 			}
 		}
 
-		HitWallActor = none;
-		HitWallHitNormal = Vect(0,0,0);
-
 		HitWallActor = Trace(HitLocation, HitNormal, Location + Velocity*TimeTick, Location, true, Vect(0,0,1) * GetCollisionHeight() + Vect(1,1,0)*2*GetCollisionRadius(), Hit);
-		HitWallHitNormal = HitNormal;			
+		HitWallHitNormal = HitNormal;
 
-		Move(Velocity * TimeTick);
+		if(HitWallActor != none)
+		{
+			//We hit...... something
+			//Velocity = Velocity - HitNormal * (Velocity dot HitNormal);	
+		}
+
+		MoveSmooth(Velocity * TimeTick);
+
+		if(FloorActor != none && VSize(Location - OldLocation)/TimeTick < VSize(OldLocation * Velocity * TimeTick - OldLocation)/1.1)
+		{
+			//we definitely didn't make it
+			//let's try to 'cheat' by trying to 'step over' whatever is in front of us
+			//note: this approach only _kind of_ works
+
+			//to do this: move back to original location
+			SetLocation(OldLocation);
+
+			//move up by StepHeight
+			Move(Vect(0,0,1) * MaxStepHeight);
+
+			//try moving again
+			Move(Velocity * TimeTick);
+
+			//To the floor!
+			MoveSmooth(Vect(0,0,-1) * MaxStepHeight);
+
+			//FloorActor = Trace(FloorHitLocation, FloorHitNormal, Location + Vect(0,0,-1)*MaxStepHeight, Location, true, Vect(0,0,1) * GetCollisionHeight() + Vect(1,1,0)*2*GetCollisionRadius(), Hit);
+			//if(FloorActor == none || FloorHitNormal.Z < WalkableFloorZ)
+			//{
+			//	//BAD
+			//	SetLocation(OldLocation);
+			//	MoveSmooth(Velocity * TimeTick);
+			//}
+		}
 
 		for(i = 0; i < GRAPPLER_MAX; ++i)
 		{
@@ -199,15 +242,18 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 			}
 		}
 
-		//event HitWall may be called while in MoveSmooth if we hit something
+
+
 		if(VSize(HitWallHitNormal) != 0)
 		{
+
+
 			//landed on walkable ground
 			if (HitWallHitNormal.Z >= WalkableFloorZ)
 			{ 
 				bLanded = true;
-				SetPhysics(PHYS_Falling);
-				return;
+				//SetPhysics(PHYS_Falling);
+				//return;
 			}
 		}
 
@@ -224,10 +270,37 @@ simulated event PerformCustomPhysics(FLOAT deltaTime, INT Iterations)
 
 function bool DoJump( bool bUpdating )
 {
-	if(super.DoJump(bUpdating))
+	local TraceHitInfo Hit;
+	local Actor FloorActor;
+	local Vector FloorHitLocation, FloorHitNormal;
+
+	local Vector JumpV;
+
+	if (StateVariables.bCanJump)
 	{
-		SetPhysics(PHYS_Custom);
-		return true;
+		if(bJumpCapable && !bIsCrouching && !(StateVariables.bIsAttacking && AOCWeapon(Weapon).CurrentFireMode == Attack_Shove) && PawnState != ESTATE_FROZEN)
+		{
+			FloorActor = Trace(FloorHitLocation, FloorHitNormal, Location + Vect(0,0,-1)*MaxStepHeight, Location, true, Vect(0,0,1) * GetCollisionHeight() + Vect(1,1,0)*2*GetCollisionRadius(), Hit);
+			
+			if ( FloorActor != none )
+				JumpV += Default.JumpZ * FloorHitNormal;
+			else
+				return false;
+
+			if (Base != None && !Base.bWorldGeometry && Base.Velocity.Z > 0.f)
+			{
+				JumpV += Normal(JumpV) * (Normal(JumpV) dot Base.Velocity);
+			}
+
+			ConsumeStamina(7);
+			Velocity += JumpV;
+
+			// update state
+			StateVariables.bIsManualJumpDodge = true;
+			StateVariables.bCanCrouch = false;
+
+			return true;
+		}
 	}
 
 	return false;

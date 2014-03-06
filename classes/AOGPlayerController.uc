@@ -85,13 +85,16 @@ state PlayerGrappling extends PlayerWalking
 		//{
 		//	Pawn.SetPhysics(PHYS_Custom);
 		//}
+
+		Pawn.SetPhysics(PHYS_Custom);
+
 		super.ProcessMove(DeltaTime, NewAccel, DoubleClickMove, DeltaRot);
 
 		TickRopeAim(DeltaTime);
 	}
 
-	//Override this (normally on spacebar) to do the 'special' dual-grapple
-	exec function SpectatorPerspective()
+	//'special' dual-grapple
+	exec function PerformArrowCam()
 	{
 		local rotator AimRot;
 		local rotator LeftAimRot;
@@ -130,13 +133,6 @@ state PlayerGrappling extends PlayerWalking
 	exec function StartStab()
 	{
 		DualGrappleOffset += DualGrappleOffsetAddPerScroll;
-	}
-
-	//MMouse
-	exec function PerformArrowCam()
-	{
-		AOGMobilePawn(Pawn).ReleaseGrappler(GRAPPLER_LEFT);
-		AOGMobilePawn(Pawn).ReleaseGrappler(GRAPPLER_RIGHT);
 	}
 }
 
