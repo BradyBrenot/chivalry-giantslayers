@@ -162,7 +162,7 @@ DefaultProperties
     DefaultPawnClass=class'`{GAMEMODE}Pawn'
 	
 	//This is the name that shows in the server browser for this mod:
-	ModDisplayString="Giant Slayers v1.2"
+	ModDisplayString="Giant Slayers v1.2a"
 	
 	//SPAWN FASTER
 	SpawnWaveInterval=1
@@ -182,4 +182,14 @@ DefaultProperties
 	
 	//Don't scale health regen up at full speed beacause it could easily get ridiculous...
 	GiantHealthRegenScaleMultiplier = 0.5
+	
+	// Use custom classes (replace projectile weapons with scaling ones; remove mode-inappropriate weapons)
+	Families(ECLASS_Archer)=class'GiantSlayersFamilyInfo_Agatha_Archer'
+	Families(ECLASS_ManAtArms)=class'GiantSlayersFamilyInfo_Agatha_ManAtArms'
+	Families(ECLASS_Vanguard)=class'GiantSlayersFamilyInfo_Agatha_Vanguard'
+	Families(ECLASS_Knight)=class'GiantSlayersFamilyInfo_Agatha_Knight'
+	Families(5)=class'GiantSlayersFamilyInfo_Mason_Archer'
+	Families(6)=class'GiantSlayersFamilyInfo_Mason_ManAtArms'
+	Families(7)=class'GiantSlayersFamilyInfo_Mason_Vanguard'
+	Families(8)=class'GiantSlayersFamilyInfo_Mason_Knight'
 }
