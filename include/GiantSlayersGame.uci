@@ -162,7 +162,7 @@ DefaultProperties
     DefaultPawnClass=class'`{GAMEMODE}Pawn'
 	
 	//This is the name that shows in the server browser for this mod:
-	ModDisplayString="Giant Slayers v1.2a"
+	ModDisplayString="Giant Slayers v1.3"
 	
 	//SPAWN FASTER
 	SpawnWaveInterval=1

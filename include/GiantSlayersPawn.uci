@@ -44,16 +44,27 @@ simulated event ReplicatedEvent(name VarName)
 	}
 }
 
-simulated function SetCharacterAppearanceFromInfo(class<AOCCharacterInfo> Info)
+simulated function SetCharacterAppearance(AssetStore_AOCPawn_Character AssetStore)
 {
-	Super.SetCharacterAppearanceFromInfo(Info);
+	Super.SetCharacterAppearance(AssetStore);
 	SetGiantScale(GiantScale);
+}
+
+simulated function RefreshScoreboard()
+{
+	AOCBaseHUD(AOCPlayerController(Controller).myHUD).HUD.Scoreboard.SetBottomLeftText("Scale: "$Round(GiantScale * 100.0)$"%"$"<br/>");
 }
 
 simulated function SetGiantScale(float NewScale)
 {
 	local float SafetyPushHeight;
 	local float OldScale;
+
+	if(IsLocallyControlled())
+	{
+		SetTimer(2.0f, false, 'RefreshScoreboard');
+		RefreshScoreboard();
+	}
 	
 	OldScale = GiantScale;
 	GiantScale = NewScale;
@@ -321,6 +332,7 @@ function CrushedBy(Pawn OtherPawn)
 {
 	if(`{GAMEMODE}Pawn(OtherPawn).GiantScale >= CrushDifferenceThreshold * GiantScale)
 	{
+		PlaySound(SoundCue'A_Impacts_Melee.Giant_stomped', FALSE, FALSE, TRUE);
 		TakeDamage(900000, OtherPawn.Controller, Location, vect(0.0f, 0.0f, 0.0f), class'AOCDmgType_Fists');
 	}
 }

@@ -30,9 +30,9 @@ reliable client function ShowDefaultGameHeader()
 
 simulated function ShowGiantSlayersHeader()
 {
-	//ReceiveLocalizedHeaderText(Localize("ChatMessages", "Welcome", "GiantSlayers"),5.0f);
+	//ClientShowLocalizedHeaderText(Localize("ChatMessages", "Welcome", "GiantSlayers"),5.0f);
 	//Localization is broken at the moment...
-	ReceiveLocalizedHeaderText("Welcome to Giant Slayers!",5.0f);
+	//ClientShowLocalizedHeaderText("Welcome to Giant Slayers!",5.0f);
 }
 
 reliable client function ClientNotifyChangedScale(float NewScale, float EnemyScale, float ScaleSappedFromEnemy, float FlatScaleIncrease, float HealthSappedFromEnemy)
@@ -134,6 +134,20 @@ exec function GS_Scale(float NewScale)
 		`{GAMEMODE}Pawn(Pawn).Health *= (NewScale / `{GAMEMODE}Pawn(Pawn).GiantScale);
 		`{GAMEMODE}Pawn(Pawn).HealthMax *= (NewScale / `{GAMEMODE}Pawn(Pawn).GiantScale);
 		`{GAMEMODE}Pawn(Pawn).SetGiantScale(NewScale);
+	}
+}
+
+exec function GS_TestCrush()
+{
+	S_TestCrush();
+}
+
+unreliable server function S_TestCrush()
+{
+	if(Worldinfo.Netmode == NM_Standalone || PlayerReplicationInfo.bAdmin)
+	{
+		Pawn.PlaySound(SoundCue'A_Impacts_Melee.Giant_stomped', FALSE, FALSE, TRUE);
+		Pawn.TakeDamage(900000, self, Location, vect(0.0f, 0.0f, 0.0f), class'AOCDmgType_Fists');
 	}
 }
 
