@@ -56,12 +56,9 @@ static event class<GameInfo> SetGameType(string MapName, string Options, string 
     }
 }*/
 
-function ScoreKill(Controller Killer, Controller Other)
+function UpdateGiantScaleAfterKill(Controller Killer, Controller Other)
 {
 	local `{GAMEMODE}Pawn KillerPawn, OtherPawn;
-	`if(`isdefined(GS_FFA))
-		local int NewHighScore;
-	`endif
 	local bool bTeamKill;
 
 	`if(`isdefined(GS_FFA))
@@ -80,8 +77,30 @@ function ScoreKill(Controller Killer, Controller Other)
 			ScaleFromKill(KillerPawn, OtherPawn);
 		}
 	}
+}
+
+`if(`isdefined(GS_TD))
+state AOCRoundInProgress
+{
+	function ScoreKill(Controller Killer, Controller Other)
+	{
+		UpdateGiantScaleAfterKill(Killer, Other);
+		super.ScoreKill(Killer, Other);
+	}
+}
+`else
+function ScoreKill(Controller Killer, Controller Other)
+{
+	`if(`isdefined(GS_FFA))
+	local `{GAMEMODE}Pawn KillerPawn;
+	local int NewHighScore;
+	`endif
+
+	UpdateGiantScaleAfterKill(Killer, Other);
 	
 	`if(`isdefined(GS_FFA))
+		KillerPawn = `{GAMEMODE}Pawn(Killer.Pawn);
+
 		AOCPRI(Killer.PlayerReplicationInfo).Score = Max(Round(KillerPawn.GiantScale*100), AOCPRI(Killer.PlayerReplicationInfo).Score);
 		AOCPRI(Killer.PlayerReplicationInfo).NumKills += 1;
 		Killer.PlayerReplicationInfo.bForceNetUpdate = TRUE;
@@ -115,6 +134,7 @@ function ScoreKill(Controller Killer, Controller Other)
 		super.ScoreKill(Killer, Other);
 	`endif
 }
+`endif
 
 function ScaleFromKill(`{GAMEMODE}Pawn Killer, `{GAMEMODE}Pawn Other)
 {
@@ -162,7 +182,7 @@ DefaultProperties
     DefaultPawnClass=class'`{GAMEMODE}Pawn'
 	
 	//This is the name that shows in the server browser for this mod:
-	ModDisplayString="Giant Slayers v1.4"
+	ModDisplayString="Giant Slayers v1.4a"
 	
 	//SPAWN FASTER
 	SpawnWaveInterval=1
