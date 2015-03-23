@@ -387,6 +387,9 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 	local bool bPassiveBlock;
 	local AOCWeaponAttachment HitActorWeaponAttachment;
 	local class<AOCWeapon> UsedWeapon;
+	local TraceHitInfo THI;
+	local bool bEnemyWasBot;
+	local bool bWasKilled;
 	
 	local bool bCannotFlinchDueToScale;
 
@@ -394,6 +397,8 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 		PRI = Info.PRI;
 	else
 		PRI = PlayerReplicationInfo;
+
+	Info.PRI = PRI;
 
 	if (!PerformAttackSSSC(Info) && WorldInfo.NetMode != NM_Standalone)
 	{
@@ -474,7 +479,7 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 
 	if (bCheckParryOnly)
 		return;
-	LogAlwaysInternal("SUCCESSFUL ATTACK OTHER PAWN HERE");
+	//LogAlwaysInternal("SUCCESSFUL ATTACK OTHER PAWN HERE");
 	// Play hit sound
 	AOCWeaponAttachment(CurrentWeaponAttachment).LastSwingType = LastHit;
 	if(!bParry)
@@ -502,33 +507,33 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 
 	//Backstab damage for melee damage
 	if (!CheckOtherPawnFacingMe(Info.HitActor) && !Info.DamageType.default.bIsProjectile)
-		ActualDamage *= PawnFamily.default.fBackstabModifier;
+		ActualDamage *= PawnFamily.fBackstabModifier;
 
 	// Vanguard Aggression
-	ActualDamage *= PawnFamily.default.fComboAggressionBonus ** Info.HitCombo;
+	//ActualDamage *= PawnFamily.default.fComboAggressionBonus ** Info.HitCombo;
 	
 	// make the other pawn take damage, the push back should be handled here too
 	//Damage = HitDamage * LocationModifier * Resistances
 	if (Info.UsedWeapon == 0 && AOCWeapon_Crossbow(Weapon) != none && Info.DamageType.default.bIsProjectile)
 	{
-		ActualDamage *= Info.HitActor.PawnFamily.default.CrossbowLocationModifiers[GetBoneLocation(Info.BoneName)];
+		ActualDamage *= Info.HitActor.PawnFamily.CrossbowLocationModifiers[GetBoneLocation(Info.BoneName)];
 	}
 	else
 	{
 		ActualDamage *= (Info.DamageType.default.bIsProjectile ? Info.HitActor.PawnFamily.default.ProjectileLocationModifiers[GetBoneLocation(Info.BoneName)] : 
-			Info.HitActor.PawnFamily.default.LocationModifiers[GetBoneLocation(Info.BoneName)]);
+			Info.HitActor.PawnFamily.LocationModifiers[GetBoneLocation(Info.BoneName)]);
 	}
 		                                                           
 	Resistance = 0;
 	
 	for( i = 0; i < ArrayCount(Info.DamageType.default.DamageType); i++)
 	{
-		Resistance += Info.DamageType.default.DamageType[i] * Info.HitActor.PawnFamily.default.DamageResistances[i];
+		Resistance += Info.DamageType.default.DamageType[i] * Info.HitActor.PawnFamily.DamageResistances[i];
 	}
 	
 	ActualDamage *= Resistance;
 
-	if (PawnFamily.default.FamilyFaction == Info.HitActor.PawnFamily.default.FamilyFaction)
+	if (PawnFamily.FamilyFaction == Info.HitActor.PawnFamily.default.FamilyFaction)
 		ActualDamage *= AOCGame(WorldInfo.Game).fTeamDamagePercent;
 		
 	ActualDamage += GenericDamage;
@@ -536,7 +541,7 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 	//Damage calculations should be done now; round it to nearest whole number
 	ActualDamage = float(Round(ActualDamage));
 
-	LogAlwaysInternal("ATTACK OTHER PAWN"@ActualDamage);
+	//LogAlwaysInternal("ATTACK OTHER PAWN"@ActualDamage);
 	// Successful parry but stamina got too low!
 	
 	if(!bCannotFlinchDueToScale)
@@ -572,14 +577,7 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 			AOCWeapon(Info.HitActor.Weapon).ActivateFlinch(true, Info.HitActor.GetHitDirection(Location), class<AOCDmgType_Generic>(Info.DamageType) != none
 				, class<AOCDmgType_Generic>(Info.DamageType) != none, AOCWeapon(Weapon).bTwoHander);
 		}
-		else if ((ActualDamage >= 80.0f || Info.HitActor.StateVariables.bIsSprinting || Info.HitActor.Weapon.IsInState('Deflect') ||
-			Info.HitActor.Weapon.IsInState('Feint') || (Info.HitActor.Weapon.IsInState('Windup') && AOCRangeWeapon(Info.HitActor.Weapon) == none) || Info.HitActor.Weapon.IsInState('Active') || Info.HitActor.Weapon.IsInState('Flinch')
-			|| Info.HitActor.Weapon.IsInState('Transition') || Info.HitActor.StateVariables.bIsManualJumpDodge || (Info.HitActor.Weapon.IsInState('Recovery') && AOCWeapon(Info.HitActor.Weapon).GetFlinchAnimLength(true) >= WeaponAnimationTimeLeft()) ) 
-			&& !bParry && !bSameTeam &&	!Info.HitActor.StateVariables.bIsSprintAttack)
-		{
-			AOCWeapon(Info.HitActor.Weapon).ActivateFlinch(true, Info.HitActor.GetHitDirection(Location), false, false, AOCWeapon(Weapon).bTwoHander);
-		}
-		else if (AOCWeapon_JavelinThrow(Info.HitActor.Weapon) != none && Info.HitActor.Weapon.IsInState('WeaponEquipping'))
+		else if (ShouldActivateFlinch(Info, UsedWeapon) && !bParry && !bSameTeam)
 		{
 			AOCWeapon(Info.HitActor.Weapon).ActivateFlinch(true, Info.HitActor.GetHitDirection(Location), false, false, AOCWeapon(Weapon).bTwoHander);
 		}
@@ -605,6 +603,11 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 		// play a PING sound if we hit a player when shooting
 		if (Info.DamageType.default.bIsProjectile)
 			PlayRangedHitSound();
+		else
+		{
+			if(!bSameTeam)
+				PlayMeleeHit();
+		}
 
 		// Play sounds for everyone
 		if (Info.HitActor.Health - ActualDamage > 0.0f)
@@ -673,7 +676,8 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 		}
 		else
 		{
-			if (Info.HitActor.PawnInfo.myFamily.default.ClassReference != ECLASS_Peasant)
+			if (Info.HitActor.PawnInfo.myFamily.ClassReference != ECLASS_Peasant
+				&& Info.HitActor.PlayerReplicationInfo != PRI)
 			{
 				AOCPRI(PRI).TeamDamageDealt += ActualDamage;
 				AOCPlayerController(Controller).TeamDamageDealt += ActualDamage;
@@ -689,17 +693,25 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 		AOCPRI(Info.HitActor.PlayerReplicationInfo).bForceNetUpdate = TRUE;
 	}
 
-	LogAlwaysInternal("ATTACK OTHER PAWN"@Controller@CurrentSiegeWeapon.Controller);
+	//LogAlwaysInternal("ATTACK OTHER PAWN"@Controller@CurrentSiegeWeapon.Controller);
 	bOnFire = Info.HitActor.bIsBurning;
-	
-	Info.HitActor.TakeDamage(ActualDamage, Controller != none ? Controller : CurrentSiegeWeapon.Controller, Info.HitLocation, Info.HitForce, Info.DamageType);
 
-	if ((Info.HitActor == none || Info.HitActor.Health <= 0) && WorldInfo.NetMode == NM_DedicatedServer)
+	THI = MakeTraceHitInfoFromHitInfo(Info);
+	
+	bEnemyWasBot = Info.HitActor.bIsBot || Info.HitActor.PlayerReplicationInfo.bBot || AOCPRI(Info.HitActor.PlayerReplicationInfo).bIsBot || AOCAIController(Info.HitActor.Controller) != none;
+
+	Info.HitActor.TakeDamage(ActualDamage, Controller != none ? Controller : CurrentSiegeWeapon.Controller, Info.HitLocation, Info.HitForce, Info.DamageType, THI);
+
+	bWasKilled = (Info.HitActor == none || Info.HitActor.Health <= 0);
+	Info.HitActor.ReplicatedHitInfo.bWasKilled = bWasKilled;
+
+	if (bWasKilled && WorldInfo.NetMode == NM_DedicatedServer)
 	{
 		// Make sure this wasn't a team kill
 		if (AOCPlayerController(Controller).StatWrapper != none
 			&& !bSameTeam
-			&& Info.UsedWeapon < 2)
+			&& Info.UsedWeapon < 2
+			&& !bEnemyWasBot)
 		{
 			AOCPlayerController(Controller).StatWrapper.IncrementKillStats(
 				Info.UsedWeapon == 0 ? PrimaryWeapon : SecondaryWeapon, 
@@ -730,8 +742,6 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 				AOCPlayerController(Controller).NotifyFistofFuryProgress();
 			}
 		}
-
-		Info.HitActor.ReplicatedHitInfo.bWasKilled = true;
 	}
 
 	foreach AICombatInterests(AIList)
@@ -748,7 +758,7 @@ reliable server function AttackOtherPawn(HitInfo Info, string DamageString, opti
 	}
 
 	// manually do the replication if we're on the standalone
-	if (WorldInfo.NetMode == NM_Standalone)
+	if (WorldInfo.NetMode == NM_Standalone || Worldinfo.NetMode == NM_ListenServer)
 	{
 		Info.HitActor.HandlePawnGetHit();
 	}
